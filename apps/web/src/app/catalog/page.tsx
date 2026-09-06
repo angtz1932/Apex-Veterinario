@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { ProductDTO, ProductCategoryDTO, Species } from '@apex/shared';
@@ -12,7 +12,7 @@ import { Search, SlidersHorizontal, Package, Tag, Filter } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-export default function CatalogPage() {
+function CatalogContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('categoryId') || '';
 
@@ -208,5 +208,19 @@ export default function CatalogPage() {
       </div>
     </div>
     </div>
+  );
+}
+
+export default function CatalogPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen py-32 flex justify-center items-center">
+          <Spinner size="lg" />
+        </div>
+      }
+    >
+      <CatalogContent />
+    </Suspense>
   );
 }
