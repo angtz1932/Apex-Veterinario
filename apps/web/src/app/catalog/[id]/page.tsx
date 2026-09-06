@@ -204,5 +204,6 @@ export default function ProductDetailPage() {
         </div>
       </div>
     </div>
+  </div>
   );
 }
