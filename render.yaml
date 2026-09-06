@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: apex-api
+    env: node
+    rootDir: apps/api
+    buildCommand: "npm install && npm run build && npx prisma generate"
+    startCommand: "npx prisma db push && npm run prisma:seed && npm run start:prod"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000

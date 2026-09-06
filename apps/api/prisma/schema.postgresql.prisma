@@ -1,0 +1,328 @@
+// Production Prisma Schema for PostgreSQL
+// Use with docker-compose.yml or cloud PostgreSQL instance
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  VETERINARIAN
+  ADMIN
+}
+
+enum Species {
+  DOG
+  CAT
+  BIRD
+  RODENT
+  OTHER
+}
+
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum BillableType {
+  PHYSICAL_PRODUCT
+  VETERINARY_SERVICE
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  phone     String?
+  role      UserRole  @default(CLIENT)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  pets         Pet[]
+  orders       Order[]
+  veterinarian Veterinarian?
+  addresses    Address[]
+
+  @@map("users")
+}
+
+model Address {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientName  String
+  street         String
+  city           String
+  state          String
+  postalCode     String
+  phone          String
+  additionalInfo String?
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@map("addresses")
+}
+
+model Veterinarian {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty     String
+  licenseNumber String   @unique
+  bio           String?
+  avatarUrl     String?
+  availableDays String   @default("1,2,3,4,5,6")
+  startHour     Int      @default(9)
+  endHour       Int      @default(18)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+
+  @@map("veterinarians")
+}
+
+model Pet {
+  id         String   @id @default(uuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  species    Species
+  breed      String
+  birthDate  DateTime
+  weightKg   Float
+  sex        Sex
+  microchip  String?  @unique
+  notes      String?
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  medicalRecords MedicalRecord[]
+  vaccinations   Vaccination[]
+  appointments   Appointment[]
+
+  @@index([ownerId])
+  @@map("pets")
+}
+
+model MedicalRecord {
+  id             String       @id @default(uuid())
+  petId          String
+  pet            Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  veterinarianId String
+  veterinarian   Veterinarian @relation(fields: [veterinarianId], references: [id])
+  visitDate      DateTime     @default(now())
+  diagnosis      String
+  treatment      String
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@map("medical_records")
+}
+
+model Vaccination {
+  id             String    @id @default(uuid())
+  petId          String
+  pet            Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vaccineName    String
+  administeredAt DateTime  @default(now())
+  nextDueDate    DateTime?
+  batchNumber    String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  @@index([petId])
+  @@map("vaccinations")
+}
+
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  createdAt   DateTime  @default(now())
+  products    Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  sku               String          @unique
+  name              String
+  slug              String          @unique
+  description       String
+  price             Float
+  compareAtPrice    Float?
+  stock             Int             @default(0)
+  brand             String
+  weightKg          Float           @default(1.0)
+  images            String
+  compatibleSpecies String
+  categoryId        String
+  category          ProductCategory @relation(fields: [categoryId], references: [id])
+  isFeatured        Boolean         @default(false)
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductVariant {
+  id           String   @id @default(uuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name         String
+  sku          String   @unique
+  presentation String
+  price        Float
+  stock        Int      @default(0)
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Service {
+  id                   String        @id @default(uuid())
+  name                 String
+  slug                 String        @unique
+  description          String
+  durationMinutes      Int           @default(30)
+  price                Float
+  compatibleSpecies    String
+  requiresVeterinarian Boolean       @default(true)
+  imageUrl             String?
+  isActive             Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+
+  appointments Appointment[]
+  orderItems   OrderItem[]
+
+  @@map("services")
+}
+
+model Appointment {
+  id             String            @id @default(uuid())
+  petId          String
+  pet            Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
+  serviceId      String
+  service        Service           @relation(fields: [serviceId], references: [id])
+  veterinarianId String?
+  veterinarian   Veterinarian?     @relation(fields: [veterinarianId], references: [id])
+  scheduledAt    DateTime
+  endAt          DateTime
+  status         AppointmentStatus @default(CONFIRMED)
+  notes          String?
+  totalPrice     Float
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([veterinarianId, scheduledAt])
+  @@index([petId])
+  @@map("appointments")
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id])
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  subtotal        Float
+  shippingCost    Float         @default(0.0)
+  discount        Float         @default(0.0)
+  total           Float
+  status          OrderStatus   @default(PROCESSING)
+  paymentStatus   PaymentStatus @default(PAID)
+  paymentMethod   String        @default("CREDIT_CARD")
+  shippingAddress String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String       @id @default(uuid())
+  orderId       String
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  billableType  BillableType
+  title         String
+  sku           String?
+  unitPrice     Float
+  quantity      Int          @default(1)
+  totalPrice    Float
+
+  productId     String?
+  product       Product?     @relation(fields: [productId], references: [id])
+
+  serviceId     String?
+  service       Service?     @relation(fields: [serviceId], references: [id])
+
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Promotion {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  description     String
+  discountPercent Float?
+  discountAmount  Float?
+  minPurchase     Float?
+  isActive        Boolean   @default(true)
+  expiresAt       DateTime?
+
+  @@map("promotions")
+}

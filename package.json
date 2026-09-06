@@ -1,0 +1,11 @@
+{
+  "name": "apex-veterinario-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "cd apps/api && npm run start:dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "start:web": "cd apps/web && npm run dev",
+    "start:api": "cd apps/api && npm run start:dev"
+  }
+}

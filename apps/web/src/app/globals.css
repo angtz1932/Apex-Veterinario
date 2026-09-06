@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════
+   LUXURY DESIGN SYSTEM — ApexVeterinario
+   ═══════════════════════════════════════════════ */
+
+@layer base {
+  body {
+    @apply text-slate-100 antialiased selection:bg-brand-500 selection:text-white min-h-screen;
+    background: linear-gradient(135deg, #0a0118 0%, #120524 25%, #1a0a30 50%, #120524 75%, #0a0118 100%);
+    background-size: 400% 400%;
+    animation: bg-gradient-shift 20s ease infinite;
+    background-attachment: fixed;
+  }
+
+  /* Luxury serif headings */
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* ─── Background Gradient Animation ─── */
+@keyframes bg-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ─── Scrollbar (Dark Luxury) ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0118;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 50, 221, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 50, 221, 0.5);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ─── Luxury Utility Classes ─── */
+@layer utilities {
+  /* Gold gradient line separator */
+  .luxury-divider {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(247, 197, 39, 0.3), rgba(205, 145, 241, 0.4), rgba(247, 197, 39, 0.3), transparent);
+  }
+
+  /* Subtle glow border effect */
+  .luxury-border {
+    @apply border border-white/10;
+    box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.05), 0 0 15px rgba(156, 50, 221, 0.08);
+  }
+
+  /* Glass card surface */
+  .luxury-glass {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08];
+    box-shadow: 
+      inset 0 1px 0 0 rgba(255,255,255,0.05),
+      0 20px 40px -12px rgba(0, 0, 0, 0.4),
+      0 0 20px rgba(156, 50, 221, 0.06);
+  }
+
+  .luxury-glass-hover {
+    @apply hover:bg-white/[0.06] hover:border-white/[0.15];
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .luxury-glass-hover:hover {
+    box-shadow: 
+      inset 0 1px 0 0 rgba(255,255,255,0.08),
+      0 25px 50px -12px rgba(0, 0, 0, 0.5),
+      0 0 30px rgba(156, 50, 221, 0.12);
+  }
+
+  /* Shimmer sweep effect */
+  .luxury-shimmer {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .luxury-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%);
+    background-size: 250% 100%;
+    animation: shimmer-sweep 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Text gold gradient */
+  .text-gold-gradient {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(135deg, #f7c527, #e8a817, #f9d44e);
+  }
+
+  /* Glow text */
+  .text-glow {
+    text-shadow: 0 0 20px rgba(156, 50, 221, 0.4), 0 0 40px rgba(156, 50, 221, 0.1);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Ambient Orbs (for hero sections) ─── */
+.luxury-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  pointer-events: none;
+  animation: float-orb 8s ease-in-out infinite;
+}
+
+.luxury-orb-brand {
+  background: radial-gradient(circle, #9c32dd 0%, transparent 70%);
+}
+
+.luxury-orb-gold {
+  background: radial-gradient(circle, #f7c527 0%, transparent 70%);
+}
+
+@keyframes float-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(15px, -20px) scale(1.05); }
+  66% { transform: translate(-10px, 10px) scale(0.95); }
+}
