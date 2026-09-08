@@ -59,9 +59,9 @@ export function middleware(req: NextRequest) {
     tenant = firstSegment;
   }
 
-  // C. Fallback a cookie previa o default
+  // C. Fallback a cookie previa si existe
   if (!tenant) {
-    tenant = req.cookies.get('tenantId')?.value || 'clinica-norte';
+    tenant = req.cookies.get('tenantId')?.value || '';
   }
 
   // ── 2. Proteger rutas privadas ────────────────────────────────
@@ -72,16 +72,18 @@ export function middleware(req: NextRequest) {
     const loginUrl = req.nextUrl.clone();
     // Si la ruta tenia prefijo de tenant, enviar a /[tenant]/login, sino /login
     loginUrl.pathname = firstSegment && !NON_TENANT_SEGMENTS.has(firstSegment)
-      ? `/${tenant}/login`
+      ? `/${tenant || 'clinica-norte'}/login`
       : `/login`;
     loginUrl.searchParams.set('redirect', req.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // ── 3. Propagar tenant en headers y cookie SIN romper el path ──
+  // ── 3. Propagar tenant en headers y cookie solo si se resolvio ──
   const resp = NextResponse.next();
-  resp.headers.set('x-tenant-id', tenant);
-  resp.cookies.set('tenantId', tenant, { path: '/', sameSite: 'lax' });
+  if (tenant) {
+    resp.headers.set('x-tenant-id', tenant);
+    resp.cookies.set('tenantId', tenant, { path: '/', sameSite: 'lax' });
+  }
   return resp;
 }
 
