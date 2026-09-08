@@ -71,12 +71,22 @@ export class PrismaOrderRepository implements IOrderRepository {
       discount: number;
       total: number;
     },
+    tenantId?: string,
   ): Promise<OrderDTO> {
     const orderNumber = `APX-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+
+    let resolvedTenantId: string | null = null;
+    if (tenantId && tenantId !== 'default') {
+      const tenant = await this.prisma.tenant.findUnique({ where: { slug: tenantId } });
+      if (tenant) {
+        resolvedTenantId = tenant.id;
+      }
+    }
 
     const created = await this.prisma.order.create({
       data: {
         orderNumber,
+        tenantId: resolvedTenantId,
         customerName: orderData.customerName,
         customerEmail: orderData.customerEmail,
         customerPhone: orderData.customerPhone,
@@ -109,6 +119,23 @@ export class PrismaOrderRepository implements IOrderRepository {
     });
 
     return this.mapToDTO(created);
+  }
+
+  async findAll(tenantId?: string): Promise<OrderDTO[]> {
+    let where: any = {};
+    if (tenantId && tenantId !== 'default') {
+      const tenant = await this.prisma.tenant.findUnique({ where: { slug: tenantId } });
+      if (tenant) {
+        where = { tenantId: tenant.id };
+      }
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map((o) => this.mapToDTO(o));
   }
 
   async findById(id: string): Promise<OrderDTO | null> {

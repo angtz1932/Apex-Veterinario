@@ -32,7 +32,7 @@ export class PrismaServiceRepository implements IServiceRepository {
     };
   }
 
-  async findAll(): Promise<ServiceDTO[]> {
+  async findAll(_tenantId?: string): Promise<ServiceDTO[]> {
     const services = await this.prisma.service.findMany({
       where: { isActive: true },
       orderBy: { price: 'asc' },
@@ -40,14 +40,14 @@ export class PrismaServiceRepository implements IServiceRepository {
     return services.map((s) => this.mapToDTO(s));
   }
 
-  async findById(id: string): Promise<ServiceDTO | null> {
+  async findById(id: string, _tenantId?: string): Promise<ServiceDTO | null> {
     const service = await this.prisma.service.findUnique({
       where: { id },
     });
     return service ? this.mapToDTO(service) : null;
   }
 
-  async findBySlug(slug: string): Promise<ServiceDTO | null> {
+  async findBySlug(slug: string, _tenantId?: string): Promise<ServiceDTO | null> {
     const service = await this.prisma.service.findUnique({
       where: { slug },
     });

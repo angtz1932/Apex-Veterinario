@@ -9,9 +9,13 @@ import {
 } from '@apex/shared';
 
 interface CartStore {
+  tenantId: string;
   items: CartItem[];
   isDrawerOpen: boolean;
   couponCode: string;
+
+  // Tenant
+  setTenant: (id: string) => void;
 
   // Actions
   openDrawer: () => void;
@@ -34,7 +38,7 @@ interface CartStore {
   setCouponCode: (code: string) => void;
   clearCart: () => void;
 
-  // Computed calculations
+  // Computed
   getCalculation: () => CartCalculation;
   getItemCount: () => number;
 }
@@ -42,9 +46,18 @@ interface CartStore {
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
+      tenantId: '',
       items: [],
       isDrawerOpen: false,
       couponCode: '',
+
+      /** Cambia de tenant y limpia el carrito automaticamente. */
+      setTenant: (id) => {
+        const { tenantId } = get();
+        if (tenantId !== id) {
+          set({ tenantId: id, items: [], couponCode: '' });
+        }
+      },
 
       openDrawer: () => set({ isDrawerOpen: true }),
       closeDrawer: () => set({ isDrawerOpen: false }),
@@ -64,10 +77,7 @@ export const useCartStore = create<CartStore>()(
               currentItem.quantity + quantity,
               product.stock || 99,
             );
-            updatedItems[existingIndex] = {
-              ...currentItem,
-              quantity: newQty,
-            };
+            updatedItems[existingIndex] = { ...currentItem, quantity: newQty };
             return { items: updatedItems, isDrawerOpen: true };
           }
 
@@ -94,33 +104,23 @@ export const useCartStore = create<CartStore>()(
             ...serviceData,
             id: `srv-cart-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             billableType: BillableType.VETERINARY_SERVICE,
-            quantity: 1, // Los servicios tienen cantidad unitaria por turno
+            quantity: 1,
           };
-
           return { items: [...state.items, newItem], isDrawerOpen: true };
         });
       },
 
       removeItem: (itemId) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.id !== itemId),
-        }));
+        set((state) => ({ items: state.items.filter((item) => item.id !== itemId) }));
       },
 
       updateQuantity: (itemId, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(itemId);
-          return;
-        }
-
+        if (quantity <= 0) { get().removeItem(itemId); return; }
         set((state) => ({
           items: state.items.map((item) => {
             if (item.id === itemId && item.billableType === BillableType.PHYSICAL_PRODUCT) {
               const maxStock = (item as ProductCartItem).stockAvailable || 99;
-              return {
-                ...item,
-                quantity: Math.min(quantity, maxStock),
-              };
+              return { ...item, quantity: Math.min(quantity, maxStock) };
             }
             return item;
           }),
@@ -145,7 +145,6 @@ export const useCartStore = create<CartStore>()(
           items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0).toFixed(2),
         );
 
-        // Envío: 0 si solo hay servicios o si compras >= $50 en productos
         const subtotalPhysical = physicalItems.reduce(
           (sum, item) => sum + item.unitPrice * item.quantity,
           0,
@@ -156,22 +155,15 @@ export const useCartStore = create<CartStore>()(
         );
 
         let shippingCost = 0;
-        if (physicalItems.length > 0) {
-          if (subtotalPhysical < 50) {
-            shippingCost = Number((4.99 + totalWeightKg * 1.5).toFixed(2));
-          }
+        if (physicalItems.length > 0 && subtotalPhysical < 50) {
+          shippingCost = Number((4.99 + totalWeightKg * 1.5).toFixed(2));
         }
 
-        // Descuento combo (10% en servicios si llevas al menos 1 producto)
         let discount = 0;
         if (physicalItems.length > 0 && serviceItems.length > 0) {
-          const servicesSubtotal = serviceItems.reduce(
-            (sum, item) => sum + item.unitPrice,
-            0,
-          );
+          const servicesSubtotal = serviceItems.reduce((sum, item) => sum + item.unitPrice, 0);
           discount += Number((servicesSubtotal * 0.1).toFixed(2));
         }
-
         if (couponCode.toUpperCase() === 'APEXBIENVENIDO') {
           discount += Number((subtotal * 0.15).toFixed(2));
         }
@@ -189,13 +181,15 @@ export const useCartStore = create<CartStore>()(
         };
       },
 
-      getItemCount: () => {
-        return get().items.reduce((sum, item) => sum + item.quantity, 0);
-      },
+      getItemCount: () => get().items.reduce((sum, item) => sum + item.quantity, 0),
     }),
     {
       name: 'apex_veterinario_cart',
-      partialize: (state) => ({ items: state.items, couponCode: state.couponCode }),
+      partialize: (state) => ({
+        tenantId: state.tenantId,
+        items: state.items,
+        couponCode: state.couponCode,
+      }),
     },
   ),
 );

@@ -1,51 +1,115 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando siembra de datos de ApexVeterinario...');
+  console.log('🌱 Iniciando siembra de datos Multi-Tenant de ApexVeterinario...');
 
-  // 1. Crear o actualizar Usuarios
+  const defaultPassword = await bcrypt.hash('demo1234', 10);
+  const adminPassword = await bcrypt.hash('admin123', 10);
+
+  // 1. Crear Inquilinos (Tenants)
+  const tenantNorte = await prisma.tenant.upsert({
+    where: { slug: 'clinica-norte' },
+    update: {
+      name: 'Apex Clínica Norte',
+      primaryColor: '#0f766e',
+      phone: '+593 99 111 2233',
+      address: 'Av. Juan Tanca Marengo Km 4.5, Guayaquil',
+      logoUrl: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=400&q=80',
+    },
+    create: {
+      id: 'tenant-clinica-norte',
+      slug: 'clinica-norte',
+      name: 'Apex Clínica Norte',
+      primaryColor: '#0f766e',
+      phone: '+593 99 111 2233',
+      address: 'Av. Juan Tanca Marengo Km 4.5, Guayaquil',
+      logoUrl: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=400&q=80',
+    },
+  });
+
+  const tenantCentral = await prisma.tenant.upsert({
+    where: { slug: 'vet-central' },
+    update: {
+      name: 'Apex Veterinaria Central',
+      primaryColor: '#7c3aed',
+      phone: '+593 99 444 5566',
+      address: 'Calle 9 de Octubre y Malecón, Guayaquil',
+      logoUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80',
+    },
+    create: {
+      id: 'tenant-vet-central',
+      slug: 'vet-central',
+      name: 'Apex Veterinaria Central',
+      primaryColor: '#7c3aed',
+      phone: '+593 99 444 5566',
+      address: 'Calle 9 de Octubre y Malecón, Guayaquil',
+      logoUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80',
+    },
+  });
+
+  console.log('✅ Tenants creados:', tenantNorte.name, '|', tenantCentral.name);
+
+  // 2. Usuarios
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@apexvet.com' },
+    update: { password: adminPassword },
+    create: {
+      id: 'user-admin-global',
+      name: 'Administrador General',
+      email: 'admin@apexvet.com',
+      password: adminPassword,
+      phone: '+593 99 000 0000',
+      role: 'ADMIN',
+      tenantId: tenantNorte.id,
+    },
+  });
+
   const clientUser = await prisma.user.upsert({
     where: { email: 'carlos@example.com' },
-    update: {},
+    update: { password: defaultPassword, tenantId: tenantNorte.id },
     create: {
       id: 'user-demo-client-1',
       name: 'Carlos Mendoza',
       email: 'carlos@example.com',
-      password: 'hashed_password_demo',
+      password: defaultPassword,
       phone: '+593 99 123 4567',
       role: 'CLIENT',
+      tenantId: tenantNorte.id,
     },
   });
 
   const vetUser1 = await prisma.user.upsert({
     where: { email: 'valeria@apexvet.com' },
-    update: {},
+    update: { password: defaultPassword, tenantId: tenantNorte.id },
     create: {
       id: 'user-vet-1',
       name: 'Dra. Valeria Soto',
       email: 'valeria@apexvet.com',
-      password: 'hashed_password_demo',
+      password: defaultPassword,
       phone: '+593 99 765 4321',
       role: 'VETERINARIAN',
+      tenantId: tenantNorte.id,
     },
   });
 
   const vetUser2 = await prisma.user.upsert({
     where: { email: 'martin@apexvet.com' },
-    update: {},
+    update: { password: defaultPassword, tenantId: tenantCentral.id },
     create: {
       id: 'user-vet-2',
       name: 'Dr. Martín Morales',
       email: 'martin@apexvet.com',
-      password: 'hashed_password_demo',
+      password: defaultPassword,
       phone: '+593 99 888 9999',
       role: 'VETERINARIAN',
+      tenantId: tenantCentral.id,
     },
   });
 
-  // 2. Veterinarios
+  // 3. Veterinarios
   const vet1 = await prisma.veterinarian.upsert({
     where: { userId: vetUser1.id },
     update: {},
@@ -78,7 +142,7 @@ async function main() {
     },
   });
 
-  // 3. Categorías
+  // 4. Categorías de Productos
   const categories = [
     {
       id: 'cat-alimentos',
@@ -125,7 +189,7 @@ async function main() {
     });
   }
 
-  // 4. Servicios Clínicos
+  // 5. Servicios Clínicos (compartidos o con tenantId)
   const services = [
     {
       id: 'srv-consulta',
@@ -137,17 +201,19 @@ async function main() {
       compatibleSpecies: JSON.stringify(['DOG', 'CAT', 'BIRD', 'RODENT']),
       requiresVeterinarian: true,
       imageUrl: 'https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?auto=format&fit=crop&w=600&q=80',
+      tenantId: tenantNorte.id,
     },
     {
-      id: 'srv-vacuna',
-      name: 'Vacunación Séxtuple / Triple Felina',
-      slug: 'vacunacion',
-      description: 'Inmunización con vacunas de alta titulación, incluye revisión física previa y carnet.',
-      durationMinutes: 30,
-      price: 42.0,
+      id: 'srv-vacunacion',
+      name: 'Plan de Vacunación Integral',
+      slug: 'vacunacion-integral',
+      description: 'Inmunización con biológicos de alta calidad. Incluye evaluación previa de aptitud y carnet oficial.',
+      durationMinutes: 25,
+      price: 30.0,
       compatibleSpecies: JSON.stringify(['DOG', 'CAT']),
       requiresVeterinarian: true,
       imageUrl: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=600&q=80',
+      tenantId: tenantNorte.id,
     },
     {
       id: 'srv-desparasitacion',
@@ -159,6 +225,7 @@ async function main() {
       compatibleSpecies: JSON.stringify(['DOG', 'CAT']),
       requiresVeterinarian: true,
       imageUrl: 'https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?auto=format&fit=crop&w=600&q=80',
+      tenantId: tenantCentral.id,
     },
     {
       id: 'srv-grooming',
@@ -170,6 +237,7 @@ async function main() {
       compatibleSpecies: JSON.stringify(['DOG', 'CAT']),
       requiresVeterinarian: false,
       imageUrl: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=600&q=80',
+      tenantId: tenantCentral.id,
     },
     {
       id: 'srv-dental',
@@ -181,6 +249,7 @@ async function main() {
       compatibleSpecies: JSON.stringify(['DOG', 'CAT']),
       requiresVeterinarian: true,
       imageUrl: 'https://images.unsplash.com/photo-1606425271394-c3ca9aa1fc06?auto=format&fit=crop&w=600&q=80',
+      tenantId: tenantNorte.id,
     },
   ];
 
@@ -192,7 +261,7 @@ async function main() {
     });
   }
 
-  // 5. Productos del Catálogo
+  // 6. Productos del Catálogo
   const products = [
     {
       id: 'prod-proplan-adult',
@@ -210,6 +279,7 @@ async function main() {
       ]),
       compatibleSpecies: JSON.stringify(['DOG']),
       categoryId: 'cat-alimentos',
+      tenantId: tenantNorte.id,
       isFeatured: true,
     },
     {
@@ -217,7 +287,7 @@ async function main() {
       sku: 'ROY-CAT-002',
       name: 'Royal Canin Feline Health Nutrition Indoor 4kg',
       slug: 'royal-canin-indoor-4kg',
-      description: 'Alimento formulado para gatos adultos sedentarios de interior. Ayuda a reducir el olor de las heces y bolas de pelo.',
+      description: 'Alimento formulado para gatos adultos sedentarios de interior. Ayuda a reducir el olor de las heces.',
       price: 46.9,
       compareAtPrice: 52.0,
       stock: 24,
@@ -228,6 +298,7 @@ async function main() {
       ]),
       compatibleSpecies: JSON.stringify(['CAT']),
       categoryId: 'cat-alimentos',
+      tenantId: tenantNorte.id,
       isFeatured: true,
     },
     {
@@ -246,78 +317,7 @@ async function main() {
       ]),
       compatibleSpecies: JSON.stringify(['DOG']),
       categoryId: 'cat-farmacia',
-      isFeatured: true,
-    },
-    {
-      id: 'prod-nexgard-spectra',
-      sku: 'BOEH-NEX-004',
-      name: 'NexGard Spectra 7.5kg - 15kg (Caja 3 tabletas)',
-      slug: 'nexgard-spectra-7-15kg',
-      description: 'Tratamiento oral mensual de amplio espectro contra parásitos internos y externos.',
-      price: 49.9,
-      compareAtPrice: 55.0,
-      stock: 30,
-      brand: 'Boehringer Ingelheim',
-      weightKg: 0.15,
-      images: JSON.stringify([
-        'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?auto=format&fit=crop&w=600&q=80',
-      ]),
-      compatibleSpecies: JSON.stringify(['DOG']),
-      categoryId: 'cat-farmacia',
-      isFeatured: false,
-    },
-    {
-      id: 'prod-arnes-ergonomico',
-      sku: 'APX-ACC-005',
-      name: 'Arnés Táctico Ergonómico ApexPro Reflectivo',
-      slug: 'arnes-ergonomico-apexpro',
-      description: 'Arnés antitirones con distribución de presión en 4 puntos, acolchado transpirable y bandas reflectivas 3M.',
-      price: 34.5,
-      compareAtPrice: 39.9,
-      stock: 40,
-      brand: 'ApexGear',
-      weightKg: 0.4,
-      images: JSON.stringify([
-        'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&w=600&q=80',
-      ]),
-      compatibleSpecies: JSON.stringify(['DOG']),
-      categoryId: 'cat-accesorios',
-      isFeatured: true,
-    },
-    {
-      id: 'prod-shampoo-avena',
-      sku: 'DERM-SHA-006',
-      name: 'Shampoo Hipoalergénico con Avena Coloidal & Aloe 500ml',
-      slug: 'shampoo-avena-aloe-500ml',
-      description: 'Fórmula calmante para pieles sensibles, alérgicas o con prurito. pH neutro sin sulfatos irritantes.',
-      price: 18.0,
-      compareAtPrice: 22.0,
-      stock: 60,
-      brand: 'DermCare Vet',
-      weightKg: 0.55,
-      images: JSON.stringify([
-        'https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80',
-      ]),
-      compatibleSpecies: JSON.stringify(['DOG', 'CAT']),
-      categoryId: 'cat-higiene',
-      isFeatured: false,
-    },
-    {
-      id: 'prod-kong-classic',
-      sku: 'KONG-CLA-007',
-      name: 'KONG Classic Juguete Rellenable Ultra Resistente L',
-      slug: 'kong-classic-juguete-l',
-      description: 'Caucho natural ultrarresistente que rebota de forma impredecible. Ideal para rellenar con snacks o pasta.',
-      price: 21.5,
-      compareAtPrice: 25.0,
-      stock: 45,
-      brand: 'KONG',
-      weightKg: 0.3,
-      images: JSON.stringify([
-        'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=600&q=80',
-      ]),
-      compatibleSpecies: JSON.stringify(['DOG']),
-      categoryId: 'cat-juguetes',
+      tenantId: tenantCentral.id,
       isFeatured: true,
     },
   ];
@@ -330,87 +330,47 @@ async function main() {
     });
   }
 
-  // 6. Mascotas Demo
+  // 7. Mascotas demo
   const pet1 = await prisma.pet.upsert({
-    where: { id: 'pet-1' },
-    update: {},
+    where: { id: 'pet-demo-1' },
+    update: { tenantId: tenantNorte.id },
     create: {
-      id: 'pet-1',
+      id: 'pet-demo-1',
       ownerId: clientUser.id,
-      name: 'Kira',
+      tenantId: tenantNorte.id,
+      name: 'Apolo',
       species: 'DOG',
       breed: 'Golden Retriever',
-      birthDate: new Date('2022-03-15'),
-      weightKg: 28.5,
-      sex: 'FEMALE',
-      microchip: '985141002348190',
-      notes: 'Muy dócil, sensible al pollo en altos porcentajes.',
+      birthDate: new Date('2021-04-10T00:00:00Z'),
+      weightKg: 31.5,
+      sex: 'MALE',
+      microchip: 'CHIP-EC-99302194',
+      notes: 'Mascota muy activa y sociable. Alérgica al polen en primavera.',
       avatarUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=400&q=80',
     },
   });
 
   const pet2 = await prisma.pet.upsert({
-    where: { id: 'pet-2' },
-    update: {},
+    where: { id: 'pet-demo-2' },
+    update: { tenantId: tenantCentral.id },
     create: {
-      id: 'pet-2',
+      id: 'pet-demo-2',
       ownerId: clientUser.id,
-      name: 'Milo',
+      tenantId: tenantCentral.id,
+      name: 'Misha',
       species: 'CAT',
       breed: 'Siamés',
-      birthDate: new Date('2023-06-20'),
-      weightKg: 4.3,
-      sex: 'MALE',
-      microchip: '985141002348191',
-      notes: 'Tranquilo, acostumbrado a cepillado diario.',
+      birthDate: new Date('2022-08-15T00:00:00Z'),
+      weightKg: 4.2,
+      sex: 'FEMALE',
+      microchip: 'CHIP-EC-88129034',
+      notes: 'Tranquila, de interior exclusivamente.',
       avatarUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=400&q=80',
     },
   });
 
-  // 7. Historial Clínico y Vacunación para Kira
-  await prisma.medicalRecord.createMany({
-    data: [
-      {
-        petId: pet1.id,
-        veterinarianId: vet1.id,
-        visitDate: new Date('2024-01-10T10:30:00Z'),
-        diagnosis: 'Chequeo anual de salud y control de peso',
-        treatment: 'Plan nutricional equilibrado y suplementación articular preventiva con condroitina.',
-        notes: 'Constantes fisiológicas normales. Peso ideal.',
-      },
-      {
-        petId: pet1.id,
-        veterinarianId: vet2.id,
-        visitDate: new Date('2024-05-18T15:00:00Z'),
-        diagnosis: 'Dermatitis estacional leve en patas traseras',
-        treatment: 'Baño medicado con clorhexidina y ácidos grasos Omega-3 por 2 semanas.',
-        notes: 'Excelente respuesta al tratamiento.',
-      },
-    ],
-  });
-
-  await prisma.vaccination.createMany({
-    data: [
-      {
-        petId: pet1.id,
-        vaccineName: 'Séxtuple Canina (DHPPi/L4)',
-        administeredAt: new Date('2024-02-15T09:00:00Z'),
-        nextDueDate: new Date('2025-02-15T09:00:00Z'),
-        batchNumber: 'LOT-VAC-2024-098',
-        notes: 'Sin efectos secundarios post-aplicación.',
-      },
-      {
-        petId: pet1.id,
-        vaccineName: 'Antirrábica Anual',
-        administeredAt: new Date('2024-02-15T09:00:00Z'),
-        nextDueDate: new Date('2025-02-15T09:00:00Z'),
-        batchNumber: 'LOT-RAB-2024-112',
-        notes: 'Certificado oficial emitido.',
-      },
-    ],
-  });
-
-  console.log('✅ Datos iniciales de ApexVeterinario cargados con éxito.');
+  console.log('✅ Mascotas creadas:', pet1.name, '|', pet2.name);
+  console.log('🎉 Siembra Multi-Tenant de ApexVeterinario finalizada exitosamente.');
 }
 
 main()

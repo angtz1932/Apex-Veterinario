@@ -10,6 +10,29 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Tenant {
+  id            String    @id @default(uuid())
+  slug          String    @unique
+  name          String
+  customDomain  String?   @unique
+  logoUrl       String?
+  primaryColor  String?   @default("#0f766e")
+  phone         String?
+  address       String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  users         User[]
+  pets          Pet[]
+  products      Product[]
+  services      Service[]
+  appointments  Appointment[]
+  orders        Order[]
+
+  @@map("tenants")
+}
+
 model User {
   id        String    @id @default(uuid())
   email     String    @unique
@@ -17,6 +40,8 @@ model User {
   name      String
   phone     String?
   role      String    @default("CLIENT")
+  tenantId  String?
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -25,6 +50,7 @@ model User {
   veterinarian Veterinarian?
   addresses    Address[]
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -69,6 +95,8 @@ model Pet {
   id         String   @id @default(uuid())
   ownerId    String
   owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   name       String
   species    String
   breed      String
@@ -86,6 +114,7 @@ model Pet {
   appointments   Appointment[]
 
   @@index([ownerId])
+  @@index([tenantId])
   @@map("pets")
 }
 
@@ -148,6 +177,8 @@ model Product {
   compatibleSpecies String
   categoryId        String
   category          ProductCategory @relation(fields: [categoryId], references: [id])
+  tenantId          String?
+  tenant            Tenant?         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   isFeatured        Boolean         @default(false)
   isActive          Boolean         @default(true)
   createdAt         DateTime        @default(now())
@@ -157,6 +188,7 @@ model Product {
   orderItems OrderItem[]
 
   @@index([categoryId])
+  @@index([tenantId])
   @@index([isFeatured])
   @@map("products")
 }
@@ -185,12 +217,15 @@ model Service {
   compatibleSpecies    String
   requiresVeterinarian Boolean       @default(true)
   imageUrl             String?
+  tenantId             String?
+  tenant               Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   isActive             Boolean       @default(true)
   createdAt            DateTime      @default(now())
 
   appointments Appointment[]
   orderItems   OrderItem[]
 
+  @@index([tenantId])
   @@map("services")
 }
 
@@ -202,6 +237,8 @@ model Appointment {
   service        Service       @relation(fields: [serviceId], references: [id])
   veterinarianId String?
   veterinarian   Veterinarian? @relation(fields: [veterinarianId], references: [id])
+  tenantId       String?
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   scheduledAt    DateTime
   endAt          DateTime
   status         String        @default("CONFIRMED")
@@ -214,6 +251,7 @@ model Appointment {
 
   @@index([veterinarianId, scheduledAt])
   @@index([petId])
+  @@index([tenantId])
   @@map("appointments")
 }
 
@@ -222,6 +260,8 @@ model Order {
   orderNumber     String      @unique
   userId          String?
   user            User?       @relation(fields: [userId], references: [id])
+  tenantId        String?
+  tenant          Tenant?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   customerName    String
   customerEmail   String
   customerPhone   String
@@ -239,6 +279,7 @@ model Order {
   items OrderItem[]
 
   @@index([userId])
+  @@index([tenantId])
   @@map("orders")
 }
 

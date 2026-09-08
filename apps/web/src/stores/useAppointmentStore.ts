@@ -4,10 +4,11 @@ import { ServiceDTO, PetDTO, VeterinarianDTO, AppointmentSlotDTO } from '@apex/s
 export type BookingStep = 'SERVICE' | 'PET' | 'VET' | 'DATETIME' | 'CONFIRM';
 
 interface AppointmentStore {
+  tenantId: string;
   isWizardOpen: boolean;
   currentStep: BookingStep;
 
-  // Selected State
+  // Seleccionados
   selectedService: ServiceDTO | null;
   selectedPet: PetDTO | null;
   selectedVet: VeterinarianDTO | null;
@@ -16,6 +17,7 @@ interface AppointmentStore {
   clientNotes: string;
 
   // Actions
+  setTenant: (id: string) => void;
   openWizard: (initialService?: ServiceDTO) => void;
   closeWizard: () => void;
   setStep: (step: BookingStep) => void;
@@ -30,11 +32,12 @@ interface AppointmentStore {
 
 const getTodayString = () => {
   const d = new Date();
-  d.setDate(d.getDate() + 1); // Por defecto proponer el día siguiente
+  d.setDate(d.getDate() + 1);
   return d.toISOString().split('T')[0];
 };
 
-export const useAppointmentStore = create<AppointmentStore>((set) => ({
+export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
+  tenantId: '',
   isWizardOpen: false,
   currentStep: 'SERVICE',
 
@@ -44,6 +47,15 @@ export const useAppointmentStore = create<AppointmentStore>((set) => ({
   selectedDate: getTodayString(),
   selectedSlot: null,
   clientNotes: '',
+
+  /** Cambia de tenant y resetea el wizard para evitar datos cruzados. */
+  setTenant: (id) => {
+    const { tenantId } = get();
+    if (tenantId !== id) {
+      get().resetWizard();
+      set({ tenantId: id });
+    }
+  },
 
   openWizard: (initialService) =>
     set({
@@ -56,14 +68,11 @@ export const useAppointmentStore = create<AppointmentStore>((set) => ({
 
   setStep: (currentStep) => set({ currentStep }),
 
-  selectService: (selectedService) =>
-    set({ selectedService, currentStep: 'PET' }),
+  selectService: (selectedService) => set({ selectedService, currentStep: 'PET' }),
 
-  selectPet: (selectedPet) =>
-    set({ selectedPet, currentStep: 'VET' }),
+  selectPet: (selectedPet) => set({ selectedPet, currentStep: 'VET' }),
 
-  selectVet: (selectedVet) =>
-    set({ selectedVet, currentStep: 'DATETIME' }),
+  selectVet: (selectedVet) => set({ selectedVet, currentStep: 'DATETIME' }),
 
   selectDate: (selectedDate) => set({ selectedDate, selectedSlot: null }),
 

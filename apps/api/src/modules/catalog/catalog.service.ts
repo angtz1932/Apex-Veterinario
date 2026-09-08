@@ -28,4 +28,12 @@ export class CatalogService {
   async listCategories(): Promise<ProductCategoryDTO[]> {
     return this.productRepo.findCategories();
   }
+
+  async updateProductStock(id: string, stock: number): Promise<ProductDTO> {
+    const product = await this.productRepo.updateStock(id, stock);
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+    return product;
+  }
 }

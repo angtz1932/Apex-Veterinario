@@ -1,17 +1,19 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, Query } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
+import { TenantId } from '../../common/decorators/tenant.decorator';
 
 @Controller('catalog')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get('categories')
-  async getCategories() {
+  async getCategories(@TenantId() _tenantId: string) {
     return this.catalogService.listCategories();
   }
 
   @Get('products')
   async getProducts(
+    @TenantId() _tenantId: string,
     @Query('categoryId') categoryId?: string,
     @Query('species') species?: string,
     @Query('search') search?: string,
@@ -30,7 +32,16 @@ export class CatalogController {
   }
 
   @Get('products/:id')
-  async getProductById(@Param('id') id: string) {
+  async getProductById(@Param('id') id: string, @TenantId() _tenantId: string) {
     return this.catalogService.getProductById(id);
+  }
+
+  @Patch('products/:id/stock')
+  async updateStock(
+    @Param('id') id: string,
+    @Body('stock') stock: number,
+    @TenantId() _tenantId: string,
+  ) {
+    return this.catalogService.updateProductStock(id, stock);
   }
 }

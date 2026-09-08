@@ -1,0 +1,30 @@
+{
+  "nav": {
+    "catalog": "Catalogo & Tienda",
+    "services": "Servicios Clinicos",
+    "pets": "Mis Mascotas",
+    "appointments": "Mis Citas",
+    "bookAppointment": "Agendar Cita",
+    "login": "Ingresar",
+    "logout": "Cerrar sesion"
+  },
+  "auth": {
+    "login": "Iniciar Sesion",
+    "register": "Crear Cuenta",
+    "email": "Correo electronico",
+    "password": "Contrasena",
+    "confirmPassword": "Confirmar contrasena",
+    "fullName": "Nombre completo",
+    "loginLoading": "Iniciando sesion...",
+    "registerLoading": "Creando cuenta...",
+    "noAccount": "No tienes cuenta?",
+    "haveAccount": "Ya tienes cuenta?",
+    "registerHere": "Registrate aqui",
+    "loginHere": "Inicia sesion"
+  },
+  "errors": {
+    "invalidCredentials": "Credenciales incorrectas",
+    "passwordMismatch": "Las contrasenas no coinciden",
+    "unknownError": "Error desconocido"
+  }
+}

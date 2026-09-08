@@ -19,7 +19,7 @@ export class AppointmentsService {
     private readonly petRepo: PrismaPetRepository,
   ) {}
 
-  async createAppointment(dto: CreateAppointmentDto): Promise<AppointmentDTO> {
+  async createAppointment(dto: CreateAppointmentDto & { tenantId?: string }): Promise<AppointmentDTO> {
     // 1. Validar existencia del servicio clínico
     const service = await this.serviceRepo.findById(dto.serviceId);
     if (!service) {
@@ -78,11 +78,24 @@ export class AppointmentsService {
       petId: dto.petId,
       serviceId: dto.serviceId,
       veterinarianId: dto.veterinarianId,
+      tenantId: dto.tenantId,
       scheduledAt: scheduledStart,
       endAt: scheduledEnd,
       notes: dto.notes,
       totalPrice: domainService.calculateTotal(1),
     });
+  }
+
+  async updateAppointmentStatus(id: string, status: any): Promise<AppointmentDTO> {
+    const updated = await this.appointmentRepo.updateStatus(id, status);
+    if (!updated) {
+      throw new NotFoundException(`Cita con ID ${id} no encontrada`);
+    }
+    return updated;
+  }
+
+  async getClinicStats(tenantId?: string) {
+    return this.appointmentRepo.getStats(tenantId);
   }
 
   async getUpcomingAppointments(userId?: string): Promise<AppointmentDTO[]> {

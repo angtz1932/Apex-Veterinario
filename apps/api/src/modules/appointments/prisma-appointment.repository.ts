@@ -39,12 +39,20 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
     endAt: Date;
     notes?: string;
     totalPrice: number;
+    tenantId?: string;
   }): Promise<AppointmentDTO> {
+    let resolvedTenantId: string | null = null;
+    if (data.tenantId && data.tenantId !== 'default') {
+      const tenant = await this.prisma.tenant.findUnique({ where: { slug: data.tenantId } });
+      if (tenant) resolvedTenantId = tenant.id;
+    }
+
     const item = await this.prisma.appointment.create({
       data: {
         petId: data.petId,
         serviceId: data.serviceId,
         veterinarianId: data.veterinarianId,
+        tenantId: resolvedTenantId,
         scheduledAt: data.scheduledAt,
         endAt: data.endAt,
         notes: data.notes,
@@ -61,6 +69,48 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
     });
 
     return this.mapToDTO(item);
+  }
+
+  async updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentDTO | null> {
+    const item = await this.prisma.appointment.update({
+      where: { id },
+      data: { status },
+      include: {
+        pet: true,
+        service: true,
+        veterinarian: {
+          include: { user: true },
+        },
+      },
+    });
+    return item ? this.mapToDTO(item) : null;
+  }
+
+  async getStats(tenantId?: string) {
+    let resolvedTenantId: string | undefined = undefined;
+    if (tenantId && tenantId !== 'default') {
+      const tenant = await this.prisma.tenant.findUnique({ where: { slug: tenantId } });
+      if (tenant) resolvedTenantId = tenant.id;
+    }
+
+    const where = resolvedTenantId ? { tenantId: resolvedTenantId } : {};
+
+    const [totalAppointments, confirmedCount, inProgressCount, completedCount, totalOrders] = await Promise.all([
+      this.prisma.appointment.count({ where }),
+      this.prisma.appointment.count({ where: { ...where, status: AppointmentStatus.CONFIRMED } }),
+      this.prisma.appointment.count({ where: { ...where, status: 'IN_PROGRESS' } }),
+      this.prisma.appointment.count({ where: { ...where, status: 'COMPLETED' } }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      totalAppointments,
+      confirmedCount,
+      inProgressCount,
+      completedCount,
+      totalOrders,
+      tenantId: tenantId || 'default',
+    };
   }
 
   async findUpcoming(userId?: string): Promise<AppointmentDTO[]> {

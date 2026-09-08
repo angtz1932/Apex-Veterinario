@@ -13,6 +13,7 @@ import {
   CartItem,
   BillableType,
   ServiceCartItem,
+  PaymentStatus,
 } from '@apex/shared';
 import { BillableItemFactory } from '../../core/factories/billable-item.factory';
 import { StandardShippingStrategy } from '../../core/strategies/shipping.strategy';
@@ -74,7 +75,7 @@ export class OrdersService {
     };
   }
 
-  async checkout(dto: CreateOrderDTO): Promise<OrderDTO> {
+  async checkout(dto: CreateOrderDTO, tenantId?: string): Promise<OrderDTO> {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('El carrito está vacío. Agrega items antes de proceder.');
     }
@@ -138,7 +139,11 @@ export class OrdersService {
     const calculations = this.calculateCart(dto.items);
 
     // 5. Crear la orden de compra persistente
-    return this.orderRepo.create(dto, calculations);
+    return this.orderRepo.create(dto, calculations, tenantId);
+  }
+
+  async listOrders(tenantId?: string): Promise<OrderDTO[]> {
+    return this.orderRepo.findAll(tenantId);
   }
 
   async getOrder(idOrNumber: string): Promise<OrderDTO> {
@@ -150,5 +155,54 @@ export class OrdersService {
       throw new NotFoundException(`Orden ${idOrNumber} no encontrada`);
     }
     return order;
+  }
+
+  async processPayment(orderId: string, paymentDetails: { method: string; transactionId?: string }) {
+    const order = await this.getOrder(orderId);
+    if (!order) {
+      throw new NotFoundException(`Orden ${orderId} no encontrada`);
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: PaymentStatus.PAID,
+        paymentMethod: paymentDetails.method,
+      },
+      include: { items: true },
+    });
+
+    return {
+      success: true,
+      orderId: updated.id,
+      orderNumber: updated.orderNumber,
+      status: updated.status,
+      paymentStatus: updated.paymentStatus,
+      transactionId: paymentDetails.transactionId || `tx_${Date.now()}`,
+      paidAt: new Date().toISOString(),
+    };
+  }
+
+  async handlePaymentWebhook(event: { type: string; data: { orderId?: string; orderNumber?: string; status?: string } }) {
+    const orderTarget = event?.data?.orderId || event?.data?.orderNumber;
+    if (!orderTarget) {
+      return { received: true, processed: false, reason: 'No order identifier' };
+    }
+
+    const order = await this.getOrder(orderTarget);
+    if (!order) {
+      throw new NotFoundException(`Orden ${orderTarget} no encontrada para webhook`);
+    }
+
+    if (event.type === 'payment_intent.succeeded' || event.type === 'checkout.session.completed') {
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.PAID,
+        },
+      });
+    }
+
+    return { received: true, processed: true, orderId: order.id };
   }
 }

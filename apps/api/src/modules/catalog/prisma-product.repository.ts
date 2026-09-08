@@ -130,4 +130,16 @@ export class PrismaProductRepository implements IProductRepository {
       orderBy: { name: 'asc' },
     });
   }
+
+  async updateStock(id: string, stock: number): Promise<ProductDTO | null> {
+    const product = await this.prisma.product.update({
+      where: { id },
+      data: { stock },
+      include: {
+        category: true,
+        variants: true,
+      },
+    });
+    return product ? this.mapToDTO(product) : null;
+  }
 }

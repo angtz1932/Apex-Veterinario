@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useCartStore } from '@/stores/useCartStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { apiClient } from '@/lib/api-client';
 import { CreateOrderDTO, OrderDTO, BillableType } from '@apex/shared';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -19,11 +20,16 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const params = useParams<{ tenant?: string }>();
+  const tenant = params?.tenant;
+  const { user } = useAuthStore();
+
   const { items, getCalculation, clearCart } = useCartStore();
   const calculation = getCalculation();
 
@@ -32,12 +38,29 @@ export default function CheckoutPage() {
   const [paymentStatus, setPaymentStatus] = useState<'authorizing' | 'success'>('authorizing');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Form State
+  // Auto-Ship Subscriptions State
+  const [isAutoShip, setIsAutoShip] = useState(false);
+  const [autoShipFrequency, setAutoShipFrequency] = useState<'30' | '60' | '90'>('30');
+  const autoShipDiscount = isAutoShip && calculation.hasPhysicalProducts ? calculation.subtotal * 0.1 : 0;
+  const finalTotal = Math.max(0, calculation.total - autoShipDiscount);
+
+  // Form State prefilled with authenticated user if available
   const [customer, setCustomer] = useState({
-    name: 'Carlos Mendoza',
-    email: 'carlos@example.com',
-    phone: '+56 9 8765 4321',
+    name: user?.name || 'Carlos Mendoza',
+    email: user?.email || 'carlos@example.com',
+    phone: user?.phone || '+593 99 123 4567',
   });
+
+  useEffect(() => {
+    if (user) {
+      setCustomer((prev) => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+      }));
+    }
+  }, [user]);
 
   const [shippingAddress, setShippingAddress] = useState({
     recipientName: 'Carlos Mendoza',
@@ -58,7 +81,7 @@ export default function CheckoutPage() {
         <p className="text-sm text-slate-400">
           No hay items para procesar en checkout. Agrega productos o servicios para continuar.
         </p>
-        <Link href="/catalog">
+        <Link href={tenant ? `/${tenant}/catalog` : '/catalog'}>
           <Button variant="primary" size="md">
             Ir al Catálogo
           </Button>
@@ -95,7 +118,10 @@ export default function CheckoutPage() {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       clearCart();
-      router.push(`/orders/${createdOrder.orderNumber}`);
+      const redirectTarget = tenant
+        ? `/${tenant}/orders/${createdOrder.orderNumber}`
+        : `/orders/${createdOrder.orderNumber}`;
+      router.push(redirectTarget);
     } catch (err: any) {
       console.error('Checkout error:', err);
       setIsProcessingPayment(false);
@@ -263,6 +289,62 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {/* Auto-Ship Subscription Feature */}
+          {calculation.hasPhysicalProducts && (
+            <div className="luxury-glass p-6 rounded-2xl border border-gold-500/30 shadow-xl space-y-4 bg-gold-500/[0.03]">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gold-500/20 text-gold-300 flex items-center justify-center shrink-0 border border-gold-500/30">
+                    <RefreshCw className={`w-5 h-5 ${isAutoShip ? 'animate-spin' : ''}`} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>Suscripción Auto-Ship Recurrente</span>
+                      <span className="text-[9px] uppercase font-mono px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-300 border border-gold-500/30">
+                        10% Ahorro Extra
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Entregas periódicas programadas sin preocuparte por el stock de alimento o medicinas.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={isAutoShip}
+                    onChange={(e) => setIsAutoShip(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold-500"></div>
+                </label>
+              </div>
+
+              {isAutoShip && (
+                <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <span className="text-slate-300 font-medium">Frecuencia de Reposición Automática:</span>
+                  <div className="flex items-center gap-2">
+                    {(['30', '60', '90'] as const).map((freq) => (
+                      <button
+                        key={freq}
+                        type="button"
+                        onClick={() => setAutoShipFrequency(freq)}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                          autoShipFrequency === freq
+                            ? 'bg-gold-gradient text-[#120524] shadow-sm'
+                            : 'bg-white/5 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Cada {freq} días
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 3. Payment Method */}
           <div className="luxury-glass p-6 rounded-2xl border border-white/10 shadow-xl space-y-4">
             <h3 className="text-[10px] font-bold text-gold-400 uppercase tracking-widest flex items-center gap-3">
@@ -361,10 +443,19 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {autoShipDiscount > 0 && (
+                <div className="flex justify-between items-center text-emerald-400 font-bold">
+                  <span className="uppercase tracking-widest text-[10px] flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3" /> Descuento Auto-Ship (10%)
+                  </span>
+                  <span className="font-mono text-sm">-{formatCurrency(autoShipDiscount)}</span>
+                </div>
+              )}
+
               <div className="pt-4 border-t border-white/10 flex justify-between items-end text-base font-extrabold text-white">
                 <span className="uppercase tracking-widest text-[10px] font-bold text-slate-400">Monto Total</span>
                 <span className="text-2xl font-serif text-white">
-                  {formatCurrency(calculation.total)}
+                  {formatCurrency(finalTotal)}
                 </span>
               </div>
             </div>
